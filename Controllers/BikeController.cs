@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using BiancasBikes.Data;
 using Microsoft.EntityFrameworkCore;
+using BiancasBikes.Models;
 
 namespace BiancasBikes.Controllers;
 
@@ -23,7 +24,39 @@ public class BikeController : ControllerBase // all controllers in program shoul
     public IActionResult Get() // Finally, the Get method is an endpoint.
 
     {
-        return Ok(_dbContext.Bikes.ToList()); // The Ok method that gets called inside Get will create an HTTP response with a status of 200, as well as the data that's passed in.
+        return Ok(_dbContext.Bikes.Include(b => b.Owner).ToList()); // The Ok method that gets called inside Get will create an HTTP response with a status of 200, as well as the data that's passed in.
+    }
+
+    [HttpGet("{id}")] // "{id}" has been passed into HttpGet to add more to the route that this handler should map to. Because the controller's route is already /api/bike, adding {id} will make the whole route for this endpoint be /api/bike/{id}. Just like when we were using Minimal APIs, the name inside the {} must match the int id param in the method in order for the framework to pass the value in from the URL when calling it.
+    [Authorize]
+    public IActionResult GetById(int id)
+    {
+        Bike bike = _dbContext
+            .Bikes
+            .Include(b => b.Owner)
+            .Include(b => b.BikeType)
+            .Include(b => b.WorkOrders)
+            .SingleOrDefault(b => b.Id == id);
+
+        if (bike == null)
+        {
+            return NotFound();
+        }
+
+        return Ok(bike);
+    }
+
+    // get Garage Inventory / incomplete work orders
+    [HttpGet("inventory")] // route is /api/bike/inventory
+    [Authorize]
+    public IActionResult Inventory() // Knows it's a get as per the HttpGet above
+    {
+        int inventory = _dbContext
+        .Bikes
+        .Where(b => b.WorkOrders.Any(wo => wo.DateCompleted == null))
+        .Count();
+
+        return Ok(inventory);
     }
 
 }
